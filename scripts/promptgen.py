@@ -11,7 +11,9 @@ from modules import scripts, script_callbacks, devices, ui
 import gradio as gr
 
 from modules.ui_components import FormRow
-
+from fastapi import FastAPI
+import requests
+import json
 
 class Model:
     name = None
@@ -22,8 +24,7 @@ class Model:
 available_models = []
 current = Model()
 
-base_dir = scripts.basedir()
-models_dir = os.path.join(base_dir, "models")
+scripts_base_dir = scripts.basedir()
 
 
 def device():
@@ -31,6 +32,7 @@ def device():
 
 
 def list_available_models():
+    models_dir = os.path.join(shared.cmd_opts.data_dir, "models/promptgen")
     available_models.clear()
 
     os.makedirs(models_dir, exist_ok=True)
@@ -47,6 +49,7 @@ def list_available_models():
 
 
 def get_model_path(name):
+    models_dir = os.path.join(shared.cmd_opts.data_dir, "models/promptgen")
     dirname = os.path.join(models_dir, name)
     if not os.path.isdir(dirname):
         return name
@@ -85,6 +88,12 @@ def model_selection_changed(model_name):
 
 
 def generate(id_task, model_name, batch_count, batch_size, text, *args):
+    if shared.cmd_opts.just_ui:
+        result = requests.post('/'.join([shared.cmd_opts.server_path, 'promptgen']), json={
+            "id_task":id_task, "model_name":model_name, "batch_count":batch_count, 
+            "batch_size":batch_size, "text":text, "batch_args":args
+        })
+        return json.loads(result.text), ''
     shared.state.textinfo = "Loading model..."
     shared.state.job_count = batch_count
 
@@ -189,7 +198,7 @@ def add_tab():
                     batch_count = gr.Slider(label="Batch count", elem_id="promptgen_batch_count", value=1, minimum=1, maximum=100, step=1)
                     batch_size = gr.Slider(label="Batch size", elem_id="promptgen_batch_size", value=10, minimum=1, maximum=100, step=1)
 
-                with open(os.path.join(base_dir, "explanation.html"), encoding="utf8") as file:
+                with open(os.path.join(scripts_base_dir, "explanation.html"), encoding="utf8") as file:
                     footer = file.read()
                     gr.HTML(footer)
 
@@ -241,3 +250,14 @@ def on_unload():
 script_callbacks.on_ui_tabs(add_tab)
 script_callbacks.on_ui_settings(on_ui_settings)
 script_callbacks.on_script_unloaded(on_unload)
+
+def promptgen_api(_: gr.Blocks, app: FastAPI):
+
+    @app.post("/promptgen")
+    async def detect(req: dict):
+        return generate(req['id_task'], req['model_name'], req['batch_count'], req['batch_size'], req['text'], *req['batch_args'])
+
+try:
+    script_callbacks.on_app_started(promptgen_api)
+except:
+    pass
