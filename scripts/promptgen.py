@@ -27,6 +27,7 @@ current = Model()
 scripts_base_dir = scripts.basedir()
 
 
+
 def device():
     return devices.cpu if shared.opts.promptgen_device == 'cpu' else devices.device
 
@@ -50,7 +51,7 @@ def list_available_models():
 
 def get_model_path(name):
     models_dir = os.path.join(shared.cmd_opts.data_dir, "models/promptgen")
-    dirname = os.path.join(models_dir, name)
+    dirname = os.path.join(models_dir, name.split('/')[-1])
     if not os.path.isdir(dirname):
         return name
 
