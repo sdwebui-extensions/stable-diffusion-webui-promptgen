@@ -94,7 +94,8 @@ def generate(id_task, model_name, batch_count, batch_size, text, *args):
             "id_task":id_task, "model_name":model_name, "batch_count":batch_count, 
             "batch_size":batch_size, "text":text, "batch_args":args
         })
-        return json.loads(result.text), ''
+        results = json.loads(result.text)
+        return results['prompts'], results['_info']
     shared.state.textinfo = "Loading model..."
     shared.state.job_count = batch_count
 
@@ -256,7 +257,12 @@ def promptgen_api(_: gr.Blocks, app: FastAPI):
 
     @app.post("/promptgen")
     async def detect(req: dict):
-        return generate(req['id_task'], req['model_name'], req['batch_count'], req['batch_size'], req['text'], *req['batch_args'])
+        prompts, _info = generate(req['id_task'], req['model_name'], req['batch_count'], req['batch_size'], req['text'], *req['batch_args'])
+        result = {
+            'prompts': prompts,
+            '_info': _info
+        }
+        return result
 
 try:
     script_callbacks.on_app_started(promptgen_api)
